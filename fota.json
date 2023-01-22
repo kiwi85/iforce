@@ -1,7 +1,7 @@
 {
     "type": "esp32-fota-http",
     "version": 2,
-    "host": "https://raw.githubusercontent.com",
-    "port": 443,
+    "host": "raw.githubusercontent.com",
+    "port": 80,
     "bin": "/kiwi85/iforce/main/firmware.bin"
 }
