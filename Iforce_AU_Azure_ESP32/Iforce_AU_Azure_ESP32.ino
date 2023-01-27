@@ -30,8 +30,8 @@
 String FirmwareVer = {
   "1.0"
 };
-#define URL_fw_Version "https://raw.githubusercontent.com/kiwi85/iforce/main/version.txt"
-#define URL_fw_Bin "https://raw.githubusercontent.com/kiwi85/iforce/main/Iforce_AU_Azure_ESP32.ino.bin"
+#define URL_fw_Version "https://raw.githubusercontent.com/kiwi85/iforce/main/Iforce_AU_Azure_ESP32/build/esp32.esp32.esp32/version.txt"
+#define URL_fw_Bin "https://raw.githubusercontent.com/kiwi85/iforce/main/Iforce_AU_Azure_ESP32/build/esp32.esp32.esp32/Iforce_AU_Azure_ESP32.ino.bin"
 
 
 
