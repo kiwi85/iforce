@@ -18,7 +18,8 @@
 #include "Base64.h"
 #include <ArduinoJson.h>
 #include <EasyButton.h>
-#include <Adafruit_NeoPixel.h>
+#include <NeoPixelBus.h>
+#include <NeoPixelAnimator.h>
 #include <Preferences.h>
 #include "cert.h"
 #define CONFIG_PIN 2
@@ -35,15 +36,16 @@ String FirmwareVer = {
 
 
 
-// Which pin on the Arduino is connected to the NeoPixels?
-#define PIN 12
-// How many NeoPixels are attached to the Arduino?
-#define NUMPIXELS 1  // Popular NeoPixel ring size
+const uint16_t PixelCount = 1; // make sure to set this to the number of pixels in your strip
+const uint8_t PixelPin = 12;  // make sure to set this to the correct pin, ignored for Esp8266
+
+
+
 // START: Azure Evet Hub settings
 const int httpsPort = 443;
 String azure_host, azure_key, azure_keyname, azure_endpoint;
 float azure_publish_speed = 1000;
-float upd_interval = 60000;
+float upd_interval = 60;
 bool simulation = false;
 String request, http_response, data;
 char chip_id[10];
@@ -58,8 +60,7 @@ String fullSas;
 WiFiClientSecure client;
 Preferences preferences;
 EasyButton button_config(CONFIG_PIN, 35, false, true);
-Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
-Timer timer_idle;  //timer for returning to idle effect
+
 Timer data_timer;
 Timer status_timer;
 Timer timer_update;
@@ -68,11 +69,14 @@ String status;
 String status_serial;
 int content_length = -1;
 int http_status_code = -1;
+
 enum status { IDLE,
               CONNECTING,
               SENDING,
               CONFIG,
-              ERROR
+              ERROR,
+              UPDATE,
+              RESET
 };
 int state = IDLE;
 
@@ -90,9 +94,132 @@ WiFiManagerParameter custom_azure_keyname("keyname", "key name", "RootManageShar
 WiFiManagerParameter custom_azure_pubspeed("pub_speed", "azure publish speed", "1", 6);
 WiFiManagerParameter custom_options_i2c;
 WiFiManagerParameter custom_options;
-bool wm_nonblocking = false;
+bool wm_nonblocking = true;
 uint32_t chipId = 0;
 String deviceName = "AU-";  //Aquisition Unit Identifier
+
+NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0800KbpsMethod> strip(PixelCount, PixelPin);
+
+// NeoPixel animation time management object
+NeoPixelAnimator animations(PixelCount, NEO_CENTISECONDS);
+RgbColor color_idle =RgbColor(0,128,0);
+RgbColor color_config =RgbColor(25,0,128);
+struct anim_set {
+RgbColor originalColor;
+RgbColor targetColor;
+uint16_t time;
+uint8_t blend_effect;
+uint8_t state;
+};
+
+anim_set animation={ color_idle, color_config,100,0,0};
+
+
+void trigger_idle_effect(){
+  animation.originalColor = color_idle;
+  animation.targetColor = RgbColor(0,100,0);
+  animation.time=500;
+  animation.blend_effect =0;
+  animation.state=IDLE;
+
+}
+void trigger_config_effect(){
+  animation.originalColor = color_idle;
+  animation.targetColor = RgbColor(100,100,0);
+  animation.time=30;
+  animation.blend_effect =0;
+  animation.state=CONFIG;
+
+}
+void trigger_connect_effect(){
+  animation.originalColor = color_idle;
+  animation.targetColor = RgbColor(0,100,100);
+  animation.time=20;
+  animation.blend_effect =0;
+  animation.state=CONNECTING;
+
+}
+void trigger_error_effect(){
+  animation.originalColor = color_idle;
+  animation.targetColor = RgbColor(255,0,0);
+  animation.time=50;
+  animation.blend_effect =0;
+  animation.state=ERROR;
+
+}
+void trigger_reset_effect(){
+  animation.originalColor = color_idle;
+  animation.targetColor = RgbColor(255,255,0);
+  animation.time=10;
+  animation.blend_effect =0;
+  animation.state=RESET;
+
+}
+void trigger_puplish_effect(){
+  animation.originalColor = color_idle;
+  animation.targetColor = RgbColor(0,0,100);
+  animation.time=10;
+  animation.blend_effect =0;
+  animation.state=SENDING;
+
+}
+void trigger_update_effect(){
+  animation.originalColor = RgbColor(0,0,100);;
+  animation.targetColor = RgbColor(10,50,100);
+  animation.time=50;
+  animation.blend_effect =0;
+  animation.state=UPDATE;
+
+}
+
+
+void SetupAnimationSet()
+{
+    // setup some animations
+    
+        const uint8_t peak = 128;
+
+        // pick a random duration of the animation for this pixel
+        // since values are centiseconds, the range is 1 - 4 seconds
+        //uint16_t time = 100;
+
+        // each animation starts with the color that was present
+        //RgbColor originalColor = RgbColor(0, peak, 0);
+        // and ends with a random color
+        //RgbColor targetColor = RgbColor(10, 0, peak);
+        // with the random ease function
+        AnimEaseFunction easing;
+
+        switch (animation.blend_effect)
+        {
+        case 0:
+            easing = NeoEase::CubicIn;
+            break;
+        case 1:
+            easing = NeoEase::CubicOut;
+            break;
+        case 2:
+            easing = NeoEase::QuadraticInOut;
+            break;
+        }
+
+
+        AnimUpdateCallback animUpdate = [=](const AnimationParam& param)
+        {
+            // progress will start at 0.0 and end at 1.0
+            // we convert to the curve we want
+            float progress = easing(param.progress);
+
+            // use the curve value to apply to the animation
+            RgbColor updatedColor = RgbColor::LinearBlend(animation.originalColor, animation.targetColor, progress);
+            strip.SetPixelColor(0, updatedColor);
+        };
+
+        // now use the animation properties we just calculated and start the animation
+        // which will continue to run and call the update function until it completes
+        animations.StartAnimation(0, animation.time, animUpdate);
+    
+}
 
 struct i2c_device {
   String name;
@@ -148,12 +275,11 @@ void saveWifiCallback() {
 
 //gets called when WiFiManager enters configuration mode
 void configModeCallback(WiFiManager* myWiFiManager) {
-  pixels.setPixelColor(0, pixels.Color(15, 15, 0));
-  pixels.show();  // Send the updated pixel colors to the hardware.
-
+  
   server.close();
   server.stop();
   Serial.println("[CALLBACK] configModeCallback fired");
+  status = "configuration";
   state = CONFIG;
 }
 
@@ -330,7 +456,7 @@ DeserializationError error = deserializeJson(doc_active_i2c_devs, selected_i2c_d
   log_config["key"] = azure_key;
   log_config["keyn"] = azure_keyname;
   log_config["spd"] = azure_publish_speed;
-
+  log_config["updInterval"] = upd_interval;
 
   serializeJson(doc_config, Serial);
   Serial.println();
@@ -393,12 +519,15 @@ void on_pressed_button_config() {
   if (!wm.startConfigPortal(deviceName.c_str())) {
     Serial.println("failed to connect or hit timeout");
     delay(3000);
-    state = IDLE;
+    status = "Config Timeout";
+    state = ERROR;
     //start_http_server();
     // ESP.restart();
   } else {
     //if you get here you have connected to the WiFi
     Serial.println("connected...yeey :)");
+    status = "connected";
+    state = IDLE;
     //start_http_server();
   }
 }
@@ -406,33 +535,11 @@ void on_pressed_button_config() {
 void on_pressed_button_config_reset() {
   Serial.println("Erasing Config, restarting");
   //preferences.clear();
-
+  state = RESET;
   wm.resetSettings();
   delay(3000);
   ESP.restart();
 }
-void idle_effect() {
-  //Serial.println("running idle effect");
-  pixels.setPixelColor(0, pixels.Color(0, 15, 0));
-  pixels.show();  // Send the updated pixel colors to the hardware.
-}
-void send_effect() {
-  state = SENDING;
-  pixels.setPixelColor(0, pixels.Color(0, 0, 15));
-  pixels.show();  // Send the updated pixel colors to the hardware.
-  //Serial.println("Sending to azure");
-  timer_idle.setTimeout(150);
-  //Set our callback function
-  //timer_idle.setCallback(idle_effect);
-  timer_idle.start();
-}
-void connect_effect() {
-  static int last_time = millis();
-  int current_time = millis();
-  pixels.setPixelColor(0, pixels.Color(0, 204, 102));
-  pixels.show();  // Send the updated pixel colors to the hardware.
-}
-
 
 void status_timer_callback() {
   DynamicJsonDocument doc_status(256);
@@ -443,6 +550,7 @@ void status_timer_callback() {
   doc_status["length"] = content_length;
   doc_status["node"] = deviceName;
   doc_status["firmware"] = FirmwareVer;
+  doc_status["updInterval"] = upd_interval;
   serializeJson(doc_status, Serial);
 
   Serial.println();
@@ -480,7 +588,7 @@ void data_timer_callback() {
 
   doc.clear();
   doc.garbageCollect();
-  send_effect();
+
 }
 
 void firmwareUpdate(void) {
@@ -492,16 +600,19 @@ void firmwareUpdate(void) {
   switch (ret) {
   case HTTP_UPDATE_FAILED:
     status = "OTA update failed";
+    state = ERROR;
     Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
     break;
 
   case HTTP_UPDATE_NO_UPDATES:
     status = "no new OTA update";
+    state = IDLE;
     Serial.println("HTTP_UPDATE_NO_UPDATES");
     break;
 
   case HTTP_UPDATE_OK:
     status = "OTA success";
+    state = UPDATE;
     Serial.println("HTTP_UPDATE_OK");
     break;
   }
@@ -533,8 +644,10 @@ int FirmwareVersionCheck(void) {
       if (httpCode == HTTP_CODE_OK) // if version received
       {
         payload = https.getString(); // save received version
+        state = IDLE;        
       } else {
         Serial.print("error in downloading version file:");
+        state = ERROR;
         Serial.println(httpCode);
       }
       https.end();
@@ -556,6 +669,7 @@ int FirmwareVersionCheck(void) {
       preferences.putString("sw_version",payload);
       preferences.end();
       Serial.println("New firmware detected");
+      state = UPDATE;
       return 1;
     }
   } 
@@ -569,10 +683,8 @@ void setup() {
   Serial2.begin(9600,SERIAL_8N1,RXD2,TXD2);
   //preferences.begin("Iforce", false);
   Serial.setDebugOutput(false);
-  
-  pixels.begin();  // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.clear();  // Set all pixel colors to 'off'
-  //wm.setEnableConfigPortal(false);
+  strip.Begin();
+  strip.Show();  //wm.setEnableConfigPortal(false);
   wm.setDebugOutput(false);
   if (wm_nonblocking) wm.setConfigPortalBlocking(false);
   wm.setAPCallback(configModeCallback);
@@ -639,7 +751,7 @@ void setup() {
     //if you get here you have connected to the WiFi
     Serial.println("connected...yeey :)");
   }
-if(FirmwareVersionCheck())firmwareUpdate(); //check for new firmware in github iforce once at startup
+//if(FirmwareVersionCheck())firmwareUpdate(); //check for new firmware in github iforce once at startup
 #ifdef USEOTA
   ArduinoOTA.begin();
 #endif
@@ -708,15 +820,15 @@ if(FirmwareVersionCheck())firmwareUpdate(); //check for new firmware in github i
   button_config.onPressedFor(10000, on_pressed_button_config_reset);
   //button_config.onSequence(5 /* number of presses */, 1000 /* timeout */, start_http_server /* callback */);
   //start_http_server();
-  timer_idle.setTimeout(100);
+  
 
   //Set our callback function
-  timer_idle.setCallback(idle_effect);
+  
   timer_update.setCallback(check_update);
   
   timer_update.setInterval(upd_interval*1000);
   //Start the timer
-  timer_idle.start();
+
   if(upd_interval>0)timer_update.start();
   data_timer.setInterval(azure_publish_speed * 1000);
   data_timer.setCallback(data_timer_callback);
@@ -728,10 +840,10 @@ if(FirmwareVersionCheck())firmwareUpdate(); //check for new firmware in github i
 
   status = "ready";
   status_serial = "ready";
-  // pixels.setPixelColor(0, pixels.Color(0, 15, 0));
-  // pixels.show();  // Send the updated pixel colors to the hardware.
+  
   if (FirmwareVersionCheck()) {
     status = "OTA update";
+    state = UPDATE;
       firmwareUpdate();
     }
 
@@ -740,12 +852,40 @@ if(FirmwareVersionCheck())firmwareUpdate(); //check for new firmware in github i
 void check_update(){
   if (FirmwareVersionCheck()) {
     status = "OTA update";
+    state = UPDATE;
       firmwareUpdate();
     }
 }
 void loop() {
   button_config.read();
-
+  if (animations.IsAnimating())
+    {
+        // the normal loop just needs these two to run the active animations
+        animations.UpdateAnimations();
+        strip.Show();
+    }
+    else
+    {
+       
+        Serial.println("Setup Next Set: "+String(animation.state));
+        // example function that sets up some animations
+        SetupAnimationSet();
+    }
+    switch(state){
+      case IDLE:trigger_idle_effect();
+        break;
+      case CONFIG:trigger_config_effect();
+        break;
+      case CONNECTING:trigger_connect_effect();
+        break;
+      case SENDING:trigger_puplish_effect();
+        break;
+      case UPDATE:trigger_update_effect();
+        break;
+      default:
+        break;
+    }
+    
   String serialstring;
   //#ifdef DEBUG
   DynamicJsonDocument doc(2048);
@@ -898,7 +1038,7 @@ void loop() {
 
 
 
-  timer_idle.update();
+
   data_timer.update();
   status_timer.update();
   timer_update.update();
