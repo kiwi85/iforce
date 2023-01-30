@@ -502,7 +502,8 @@ void handleNotFound() {
 }
 
 void on_pressed_button_config() {
-
+ strip.SetPixelColor(0, RgbColor(10,10,0));
+ strip.Show();
   // start portal w delay
   Serial.println("Starting config portal");
   wm.setConfigPortalTimeout(120);
@@ -725,7 +726,7 @@ void setup() {
 
   wm.setConfigPortalTimeout(120);
   wm.setConnectTimeout(5);
-  wm.setConnectRetries(2);
+  wm.setConnectRetries(3);
   for (int i = 0; i < 17; i = i + 8) {
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
@@ -740,7 +741,8 @@ void setup() {
 
   bool res = wm.autoConnect(deviceName.c_str());  // password protected ap
 while (WiFi.status() != WL_CONNECTED) {
-       
+        strip.SetPixelColor(0, RgbColor(10,0,0));
+        strip.Show();
        state=CONNECTING;
        do_animations();
     }
@@ -932,8 +934,8 @@ void loop() {
       S1_Curr1 = serialstring.substring(ind0 + 1, ind1).toFloat();  //captures first data String
       S1_Curr2 = serialstring.substring(ind1 + 1, ind2).toFloat();  //captures second data String
       JsonObject data1 = doc.createNestedObject("Sensor1");
-      data1["Curr1"] = serialized(String(S1_Curr1,PRECISION));
-      data1["Curr2"] = serialized(String(S1_Curr2,PRECISION));
+      data1["Curr1"] = S1_Curr1;
+      data1["Curr2"] = S1_Curr2;
     }
 
 
@@ -941,38 +943,38 @@ void loop() {
       S2_Curr1 = serialstring.substring(ind2 + 1, ind3).toFloat();
       S2_Curr2 = serialstring.substring(ind3 + 1, ind4).toFloat();  //captures remain part of data after last ,
       JsonObject data2 = doc.createNestedObject("Sensor2");
-      data2["Curr1"] = serialized(String(S2_Curr1,PRECISION));
-      data2["Curr2"] = serialized(String(S2_Curr2,PRECISION));
+      data2["Curr1"] = S2_Curr1;
+      data2["Curr2"] = S2_Curr2;
     }
     if (sensor_num > 2) {
       S3_Curr1 = serialstring.substring(ind4 + 1, ind5).toFloat();  //captures remain part of data after last ,
       S3_Curr2 = serialstring.substring(ind5 + 1, ind6).toFloat();  //captures remain part of data after last ,
       JsonObject data3 = doc.createNestedObject("Sensor3");
-      data3["Curr1"] = serialized(String(S3_Curr1,PRECISION));
-      data3["Curr2"] = serialized(String(S3_Curr2,PRECISION));
+      data3["Curr1"] = S3_Curr1;
+      data3["Curr2"] = S3_Curr2;
     }
     if (sensor_num > 3) {
       S4_Curr1 = serialstring.substring(ind6 + 1, ind7).toFloat();  //captures remain part of data after last ,
       S4_Curr2 = serialstring.substring(ind7 + 1, ind8).toFloat();  //captures remain part of data after last ,
       JsonObject data4 = doc.createNestedObject("Sensor4");
-      data4["Curr1"] = serialized(String(S4_Curr1,PRECISION));
-      data4["Curr2"] = serialized(String(S4_Curr2,PRECISION));
+      data4["Curr1"] = S4_Curr1;
+      data4["Curr2"] = S4_Curr2;
     }
 
     if (sensor_num > 4) {
       S5_Curr1 = serialstring.substring(ind8 + 1, ind9).toFloat();   //captures remain part of data after last ,
       S5_Curr2 = serialstring.substring(ind9 + 1, ind10).toFloat();  //captures remain part of data after last ,
       JsonObject data5 = doc.createNestedObject("Sensor5");
-      data5["Curr1"] = serialized(String(S5_Curr1,PRECISION));
-      data5["Curr2"] = serialized(String(S5_Curr2,PRECISION));
+      data5["Curr1"] = S5_Curr1;
+      data5["Curr2"] = S5_Curr2;
     }
 
     if (sensor_num > 5) {
       S6_Curr1 = serialstring.substring(ind10 + 1, ind11).toFloat();  //captures remain part of data after last ,
       S6_Curr2 = serialstring.substring(ind11 + 1, ind12).toFloat();  //captures remain part of data after last ,
       JsonObject data6 = doc.createNestedObject("Sensor6");
-      data6["Curr1"] = serialized(String(S6_Curr1,PRECISION));
-      data6["Curr2"] = serialized(String(S6_Curr2,PRECISION));
+      data6["Curr1"] = S6_Curr1;
+      data6["Curr2"] = S6_Curr2;
     }
 
     if (sensor_num > 6) {
@@ -980,13 +982,13 @@ void loop() {
       S7_Curr1 = serialstring.substring(ind12 + 1, ind13).toFloat();  //captures remain part of data after last ,
       S7_Curr2 = serialstring.substring(ind13 + 1, ind14).toFloat();  //captures remain part of data after last ,
       JsonObject data7 = doc.createNestedObject("Sensor7");
-      data7["Curr1"] = serialized(String(S7_Curr1,PRECISION));
-      data7["Curr2"] = serialized(String(S7_Curr2,PRECISION));
+      data7["Curr1"] =S7_Curr1;
+      data7["Curr2"] = S7_Curr2;
     }
   }
 
   if (simulation) {
-    sensor_num = 5;
+    sensor_num = 7;
 
     doc["node"] = deviceName;
     doc["round"] = round_num;
