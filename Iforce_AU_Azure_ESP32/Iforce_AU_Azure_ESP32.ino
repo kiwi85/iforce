@@ -64,6 +64,7 @@ EasyButton button_config(CONFIG_PIN, 35, false, true);
 Timer data_timer;
 Timer status_timer;
 Timer timer_update;
+Timer timer_idle;
 String data_json;
 String status;
 String status_serial;
@@ -94,7 +95,7 @@ WiFiManagerParameter custom_azure_keyname("keyname", "key name", "RootManageShar
 WiFiManagerParameter custom_azure_pubspeed("pub_speed", "azure publish speed", "1", 6);
 WiFiManagerParameter custom_options_i2c;
 WiFiManagerParameter custom_options;
-bool wm_nonblocking = true;
+bool wm_nonblocking = false;
 uint32_t chipId = 0;
 String deviceName = "AU-";  //Aquisition Unit Identifier
 
@@ -102,8 +103,8 @@ NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0800KbpsMethod> strip(PixelCount, PixelPin
 
 // NeoPixel animation time management object
 NeoPixelAnimator animations(PixelCount, NEO_CENTISECONDS);
-RgbColor color_idle =RgbColor(0,128,0);
-RgbColor color_config =RgbColor(25,0,128);
+RgbColor color_idle =RgbColor(0,12,0);
+RgbColor color_config =RgbColor(25,0,12);
 struct anim_set {
 RgbColor originalColor;
 RgbColor targetColor;
@@ -117,15 +118,15 @@ anim_set animation={ color_idle, color_config,100,0,0};
 
 void trigger_idle_effect(){
   animation.originalColor = color_idle;
-  animation.targetColor = RgbColor(0,100,0);
-  animation.time=500;
+  animation.targetColor = color_idle;
+  animation.time=5000;
   animation.blend_effect =0;
   animation.state=IDLE;
 
 }
 void trigger_config_effect(){
   animation.originalColor = color_idle;
-  animation.targetColor = RgbColor(100,100,0);
+  animation.targetColor = RgbColor(10,10,0);
   animation.time=30;
   animation.blend_effect =0;
   animation.state=CONFIG;
@@ -133,7 +134,7 @@ void trigger_config_effect(){
 }
 void trigger_connect_effect(){
   animation.originalColor = color_idle;
-  animation.targetColor = RgbColor(0,100,100);
+  animation.targetColor = RgbColor(0,10,10);
   animation.time=20;
   animation.blend_effect =0;
   animation.state=CONNECTING;
@@ -141,7 +142,7 @@ void trigger_connect_effect(){
 }
 void trigger_error_effect(){
   animation.originalColor = color_idle;
-  animation.targetColor = RgbColor(255,0,0);
+  animation.targetColor = RgbColor(25,0,0);
   animation.time=50;
   animation.blend_effect =0;
   animation.state=ERROR;
@@ -149,7 +150,7 @@ void trigger_error_effect(){
 }
 void trigger_reset_effect(){
   animation.originalColor = color_idle;
-  animation.targetColor = RgbColor(255,255,0);
+  animation.targetColor = RgbColor(20,15,0);
   animation.time=10;
   animation.blend_effect =0;
   animation.state=RESET;
@@ -157,9 +158,9 @@ void trigger_reset_effect(){
 }
 void trigger_puplish_effect(){
   animation.originalColor = color_idle;
-  animation.targetColor = RgbColor(0,0,100);
+  animation.targetColor = RgbColor(0,0,200);
   animation.time=10;
-  animation.blend_effect =0;
+  animation.blend_effect =2;
   animation.state=SENDING;
 
 }
@@ -177,17 +178,6 @@ void SetupAnimationSet()
 {
     // setup some animations
     
-        const uint8_t peak = 128;
-
-        // pick a random duration of the animation for this pixel
-        // since values are centiseconds, the range is 1 - 4 seconds
-        //uint16_t time = 100;
-
-        // each animation starts with the color that was present
-        //RgbColor originalColor = RgbColor(0, peak, 0);
-        // and ends with a random color
-        //RgbColor targetColor = RgbColor(10, 0, peak);
-        // with the random ease function
         AnimEaseFunction easing;
 
         switch (animation.blend_effect)
@@ -281,6 +271,7 @@ void configModeCallback(WiFiManager* myWiFiManager) {
   Serial.println("[CALLBACK] configModeCallback fired");
   status = "configuration";
   state = CONFIG;
+  
 }
 
 bool getParam_bool(String name) {
@@ -515,6 +506,7 @@ void on_pressed_button_config() {
   // start portal w delay
   Serial.println("Starting config portal");
   wm.setConfigPortalTimeout(120);
+  state = CONFIG;
 
   if (!wm.startConfigPortal(deviceName.c_str())) {
     Serial.println("failed to connect or hit timeout");
@@ -530,6 +522,7 @@ void on_pressed_button_config() {
     state = IDLE;
     //start_http_server();
   }
+  
 }
 
 void on_pressed_button_config_reset() {
@@ -577,10 +570,13 @@ void data_timer_callback() {
     status = "publish sensors";
     doc.shrinkToFit();
     serializeJson(doc, temp_variables);
+    state = SENDING;
+    //trigger_puplish_effect();
     request = String("POST ") + azure_endpoint.c_str() + " HTTP/1.1\r\n" + "Host: " + azure_host.c_str() + "\r\n" + "Authorization: SharedAccessSignature " + fullSas + "\r\n" + "Content-Type: application/atom+xml;type=entry;charset=utf-8\r\n" + "Content-Length: " + temp_variables.length() + "\r\n\r\n" + temp_variables;
     content_length = temp_variables.length();
     client.print(request);
-
+    timer_idle.setTimeout(200);
+    timer_idle.start();
 
     //Serial.println(temp_variables);
     temp_variables = "";
@@ -729,7 +725,7 @@ void setup() {
 
   wm.setConfigPortalTimeout(120);
   wm.setConnectTimeout(5);
-  wm.setConnectRetries(3);
+  wm.setConnectRetries(2);
   for (int i = 0; i < 17; i = i + 8) {
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
@@ -743,13 +739,19 @@ void setup() {
   // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
 
   bool res = wm.autoConnect(deviceName.c_str());  // password protected ap
-
+while (WiFi.status() != WL_CONNECTED) {
+       
+       state=CONNECTING;
+       do_animations();
+    }
   if (!res) {
     Serial.println("Failed to connect or hit timeout");
     // ESP.restart();
+    state = ERROR;
   } else {
     //if you get here you have connected to the WiFi
     Serial.println("connected...yeey :)");
+    state = IDLE;
   }
 //if(FirmwareVersionCheck())firmwareUpdate(); //check for new firmware in github iforce once at startup
 #ifdef USEOTA
@@ -825,6 +827,7 @@ void setup() {
   //Set our callback function
   
   timer_update.setCallback(check_update);
+  timer_idle.setCallback(trigger_idle_state);
   
   timer_update.setInterval(upd_interval*1000);
   //Start the timer
@@ -856,8 +859,11 @@ void check_update(){
       firmwareUpdate();
     }
 }
-void loop() {
-  button_config.read();
+void trigger_idle_state(){
+  state = IDLE;
+}
+
+void do_animations(){
   if (animations.IsAnimating())
     {
         // the normal loop just needs these two to run the active animations
@@ -867,7 +873,7 @@ void loop() {
     else
     {
        
-        Serial.println("Setup Next Set: "+String(animation.state));
+        //Serial.println("Setup Next Set: "+String(animation.state));
         // example function that sets up some animations
         SetupAnimationSet();
     }
@@ -882,9 +888,13 @@ void loop() {
         break;
       case UPDATE:trigger_update_effect();
         break;
-      default:
-        break;
+      default:trigger_idle_effect();
     }
+}
+
+void loop() {
+  button_config.read();
+  do_animations();
     
   String serialstring;
   //#ifdef DEBUG
@@ -1042,6 +1052,7 @@ void loop() {
   data_timer.update();
   status_timer.update();
   timer_update.update();
+  timer_idle.update();
 
   if (!client.connected()) client.connect(azure_host.c_str(), httpsPort);  //reconnection of azure cloud if connection is lost
 
