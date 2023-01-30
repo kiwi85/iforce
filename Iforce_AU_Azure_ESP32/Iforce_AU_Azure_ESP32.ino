@@ -259,8 +259,8 @@ struct i2c_device i2c_devices[] = {
 void saveWifiCallback() {
   Serial.println("[CALLBACK] saveWifiCallback fired");
   status = "wifi settings saved";
- // delay(2000);
- // ESP.restart();
+ delay(2000);
+ ESP.restart();
 }
 
 //gets called when WiFiManager enters configuration mode
@@ -740,12 +740,7 @@ void setup() {
   // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
 
   bool res = wm.autoConnect(deviceName.c_str());  // password protected ap
-while (WiFi.status() != WL_CONNECTED) {
-        strip.SetPixelColor(0, RgbColor(10,0,0));
-        strip.Show();
-       state=CONNECTING;
-       do_animations();
-    }
+
   if (!res) {
     Serial.println("Failed to connect or hit timeout");
     // ESP.restart();
