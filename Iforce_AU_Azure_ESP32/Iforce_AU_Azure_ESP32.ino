@@ -725,8 +725,8 @@ void setup() {
 
 
   wm.setConfigPortalTimeout(120);
-  wm.setConnectTimeout(5);
-  wm.setConnectRetries(3);
+  wm.setConnectTimeout(10);
+  wm.setConnectRetries(2);
   for (int i = 0; i < 17; i = i + 8) {
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
@@ -901,7 +901,7 @@ void loop() {
 
   if (Serial2.available() > 0) {
     serialstring = Serial2.readStringUntil('\n');  //read until timeout
-    //Serial.println(serialstring);
+    Serial.println(serialstring);
     int ind00 = serialstring.indexOf(',');            //finds location of first ,
     int ind0 = serialstring.indexOf(',', ind00 + 1);  //finds location of first ,
     int ind1 = serialstring.indexOf(',', ind0 + 1);   //finds location of first ,
