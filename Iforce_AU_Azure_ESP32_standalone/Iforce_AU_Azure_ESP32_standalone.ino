@@ -366,7 +366,7 @@ char* generate_option_html_str() {
   upd_interval = preferences.getFloat("updInterval", 60);
   i2c_scan();
 
-  static char buffer[512];
+  static char buffer[1024];
   int buff_len = sizeof(buffer) / sizeof(buffer[0]);
   strncpy(buffer, "<label><input type='checkbox' name='sim' id='sim'", buff_len);
   strncat(buffer, get_str_from_bool(preferences.getBool("sim", false)).c_str(), buff_len - strlen(buffer));
@@ -380,6 +380,43 @@ char* generate_option_html_str() {
   else strncat(buffer, "<option value='86400'>24 hours</option>", buff_len - strlen(buffer));
   if (upd_interval == 0) strncat(buffer, "<option value='0' selected>never</option></select>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='0'>never</option></select>", buff_len - strlen(buffer));
+
+  strncat(buffer, "<p><label for='sensor_num'>number of sensors</label></p><select id='sensor_num'>", buff_len - strlen(buffer));
+  if (sensor_num == 1) strncat(buffer, "<option value='1' selected>1 sensor</option>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='1'>1 sensor</option>", buff_len - strlen(buffer));
+  if (sensor_num == 2) strncat(buffer, "<option value='1' selected>2 sensors</option>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='2'>2 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 3) strncat(buffer, "<option value='1' selected>3 sensors</option>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='3'>3 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 4) strncat(buffer, "<option value='1' selected>4 sensors</option>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='4'>4 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 5) strncat(buffer, "<option value='1' selected>5 sensors</option>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='5'>5 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 6) strncat(buffer, "<option value='1' selected>6 sensors</option>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='6'>6 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 7) strncat(buffer, "<option value='1' selected>7 sensors</option>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='7'>7 sensors</option>", buff_len - strlen(buffer));
+
+  strncat(buffer, "<p>sensor start: <input max='", buff_len - strlen(buffer));
+  strncat(buffer, String(preferences.getInt("sensor_num", 5)).c_str(), buff_len - strlen(buffer));
+  strncat(buffer, "'min='1' name='sensor_start' type='number' value='", buff_len - strlen(buffer));
+  strncat(buffer, String(preferences.getInt("sensor_start", 1)).c_str(), buff_len - strlen(buffer));
+  strncat(buffer, "' /></p>", buff_len - strlen(buffer));
+  strncat(buffer, "<p>delay time: <input max='100' min='1' name='delay_time' type='number' value='", buff_len - strlen(buffer));
+  strncat(buffer, String(preferences.getInt("delay_time", 5)).c_str(), buff_len - strlen(buffer));
+  strncat(buffer, "' /></p>", buff_len - strlen(buffer));
+
+  strncat(buffer, "<p>phase number: <input max='12' min='1' name='phase_num' type='number' value='", buff_len - strlen(buffer));
+  strncat(buffer, String(preferences.getInt("phase_num", 7)).c_str(), buff_len - strlen(buffer));
+  strncat(buffer, "' /></p>", buff_len - strlen(buffer));
+
+  strncat(buffer, "<p>measures: <input max='20' min='1' name='measures' type='number' value='", buff_len - strlen(buffer));
+  strncat(buffer, String(preferences.getInt("measures", 1)).c_str(), buff_len - strlen(buffer));
+  strncat(buffer, "' /></p>", buff_len - strlen(buffer));
+
+  strncat(buffer, "<p>cell number: <input max='7' min='0' name='cell_num' type='number' value='", buff_len - strlen(buffer));
+  strncat(buffer, String(preferences.getInt("cell_num", 0)).c_str(), buff_len - strlen(buffer));
+  strncat(buffer, "' /></p>", buff_len - strlen(buffer));
   preferences.end();
   return buffer;
 }
@@ -448,7 +485,7 @@ void get_parameters() {
   cell_num = preferences.getInt("cell_num", 0);
   measures = preferences.getInt("measures", 1);
   sensor_start = preferences.getInt("sensor_start", 1);
-  delaytime = preferences.getInt("delaytime", 5);
+  delaytime = preferences.getInt("delay_time", 5);
   preferences.end();
   DeserializationError error = deserializeJson(doc_active_i2c_devs, selected_i2c_devices);
   if (!error) i2c = doc_active_i2c_devs.to<JsonObject>();
@@ -491,7 +528,7 @@ void saveParamCallback() {
   preferences.putInt("cell_num", getParam("cell_num").toInt());
   preferences.putInt("measures", getParam("measures").toInt());
   preferences.putInt("sensor_start", getParam("sensor_start").toInt());
-  preferences.putInt("delaytime", getParam("delaytime").toInt());
+  preferences.putInt("delay_time", getParam("delay_time").toInt());
 
   preferences.end();
   get_parameters();
@@ -555,7 +592,7 @@ void on_pressed_button_config_reset() {
 }
 
 void status_timer_callback() {
-  DynamicJsonDocument doc_status(256);
+  DynamicJsonDocument doc_status(312);
   doc_status["status"] = status;
   doc_status["serial"] = status_serial;
   doc_status["wifi"] = wm.getWiFiSSID(true);
@@ -564,6 +601,9 @@ void status_timer_callback() {
   doc_status["node"] = deviceName;
   doc_status["firmware"] = FirmwareVer;
   doc_status["updInterval"] = upd_interval;
+  doc_status["sensor_num"] = sensor_num;
+  doc_status["delay_time"] = delaytime;
+  doc_status["phase_num"] = phase_num;
   serializeJson(doc_status, Serial);
 
   Serial.println();
