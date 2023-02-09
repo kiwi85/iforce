@@ -22,6 +22,7 @@
 #include <NeoPixelAnimator.h>
 #include <Preferences.h>
 #include "cert.h"
+
 #define CONFIG_PIN 2
 #define MAX_I2C_ADDR 10
 #define buffersize_i2c 1000
@@ -60,6 +61,8 @@ String fullSas;
 WiFiClientSecure client;
 Preferences preferences;
 EasyButton button_config(CONFIG_PIN, 35, false, true);
+
+DynamicJsonDocument doc(6400);
 
 Timer data_timer;
 Timer status_timer;
@@ -556,20 +559,22 @@ void status_timer_callback() {
 void data_timer_callback() {
   //Serial.println(data_json);
   round_num++;
-  const char* json = data_json.c_str();
-  DynamicJsonDocument doc(6400);
-  String temp_variables;
+  //const char* json = data_json.c_str();
+  //DynamicJsonDocument doc(6400);
+  String temp_variables = "";
+  /*
   DeserializationError err1 = deserializeJson(doc, json);
   if (err1) {
     Serial.print(F("deserializeJson() failed with code "));
     Serial.println(err1.c_str());
   } else {
+    */
     doc["node"] = deviceName;
     doc["round"] = round_num;
     //doc["mac"] = WiFi.macAddress();
     //doc["rssi"] = WiFi.RSSI();
     status = "publish sensors";
-    doc.shrinkToFit();
+    //doc.shrinkToFit();
     serializeJson(doc, temp_variables);
     state = SENDING;
     //trigger_puplish_effect();
@@ -580,8 +585,8 @@ void data_timer_callback() {
     timer_idle.start();
 
     //Serial.println(temp_variables);
-    temp_variables = "";
-  }
+    //temp_variables = "";
+  //}
 
   doc.clear();
   doc.garbageCollect();
@@ -895,7 +900,7 @@ void loop() {
     
   String serialstring;
   //#ifdef DEBUG
-  DynamicJsonDocument doc(2048);
+  //DynamicJsonDocument doc(2048);
 
 
 
@@ -928,57 +933,57 @@ void loop() {
     if (sensor_num > 0) {
       S1_Curr1 = serialstring.substring(ind0 + 1, ind1).toFloat();  //captures first data String
       S1_Curr2 = serialstring.substring(ind1 + 1, ind2).toFloat();  //captures second data String
-      JsonObject data1 = doc.createNestedObject("Sensor1");
-      data1["Curr1"] = S1_Curr1;
-      data1["Curr2"] = S1_Curr2;
+      //JsonObject data1 = doc.createNestedObject("Sensor1");
+      doc["Sensor1"]["Curr1"] = S1_Curr1;
+      doc["Sensor1"]["Curr2"] = S1_Curr2;
     }
 
 
     if (sensor_num > 1) {
       S2_Curr1 = serialstring.substring(ind2 + 1, ind3).toFloat();
       S2_Curr2 = serialstring.substring(ind3 + 1, ind4).toFloat();  //captures remain part of data after last ,
-      JsonObject data2 = doc.createNestedObject("Sensor2");
-      data2["Curr1"] = S2_Curr1;
-      data2["Curr2"] = S2_Curr2;
+      //JsonObject data2 = doc.createNestedObject("Sensor2");
+      doc["Sensor2"]["Curr1"] = S2_Curr1;
+      doc["Sensor2"]["Curr2"] = S2_Curr2;
     }
     if (sensor_num > 2) {
       S3_Curr1 = serialstring.substring(ind4 + 1, ind5).toFloat();  //captures remain part of data after last ,
       S3_Curr2 = serialstring.substring(ind5 + 1, ind6).toFloat();  //captures remain part of data after last ,
-      JsonObject data3 = doc.createNestedObject("Sensor3");
-      data3["Curr1"] = S3_Curr1;
-      data3["Curr2"] = S3_Curr2;
+      //JsonObject data3 = doc.createNestedObject("Sensor3");
+      doc["Sensor3"]["Curr1"] = S3_Curr1;
+      doc["Sensor3"]["Curr2"] = S3_Curr2;
     }
     if (sensor_num > 3) {
       S4_Curr1 = serialstring.substring(ind6 + 1, ind7).toFloat();  //captures remain part of data after last ,
       S4_Curr2 = serialstring.substring(ind7 + 1, ind8).toFloat();  //captures remain part of data after last ,
-      JsonObject data4 = doc.createNestedObject("Sensor4");
-      data4["Curr1"] = S4_Curr1;
-      data4["Curr2"] = S4_Curr2;
+      //JsonObject data4 = doc.createNestedObject("Sensor4");
+      doc["Sensor4"]["Curr1"] = S4_Curr1;
+      doc["Sensor4"]["Curr2"] = S4_Curr2;
     }
 
     if (sensor_num > 4) {
       S5_Curr1 = serialstring.substring(ind8 + 1, ind9).toFloat();   //captures remain part of data after last ,
       S5_Curr2 = serialstring.substring(ind9 + 1, ind10).toFloat();  //captures remain part of data after last ,
-      JsonObject data5 = doc.createNestedObject("Sensor5");
-      data5["Curr1"] = S5_Curr1;
-      data5["Curr2"] = S5_Curr2;
+      //JsonObject data5 = doc.createNestedObject("Sensor5");
+      doc["Sensor5"]["Curr1"] = S5_Curr1;
+      doc["Sensor5"]["Curr2"] = S5_Curr2;
     }
 
     if (sensor_num > 5) {
       S6_Curr1 = serialstring.substring(ind10 + 1, ind11).toFloat();  //captures remain part of data after last ,
       S6_Curr2 = serialstring.substring(ind11 + 1, ind12).toFloat();  //captures remain part of data after last ,
-      JsonObject data6 = doc.createNestedObject("Sensor6");
-      data6["Curr1"] = S6_Curr1;
-      data6["Curr2"] = S6_Curr2;
+      //JsonObject data6 = doc.createNestedObject("Sensor6");
+      doc["Sensor6"]["Curr1"] = S6_Curr1;
+      doc["Sensor6"]["Curr2"] = S6_Curr2;
     }
 
     if (sensor_num > 6) {
 
       S7_Curr1 = serialstring.substring(ind12 + 1, ind13).toFloat();  //captures remain part of data after last ,
       S7_Curr2 = serialstring.substring(ind13 + 1, ind14).toFloat();  //captures remain part of data after last ,
-      JsonObject data7 = doc.createNestedObject("Sensor7");
-      data7["Curr1"] =S7_Curr1;
-      data7["Curr2"] = S7_Curr2;
+      //JsonObject data7 = doc.createNestedObject("Sensor7");
+      doc["Sensor7"]["Curr1"] =S7_Curr1;
+      doc["Sensor7"]["Curr2"] = S7_Curr2;
     }
   }
 
@@ -989,49 +994,49 @@ void loop() {
     doc["round"] = round_num;
 
     if (sensor_num > 0) {
-      JsonObject data1 = doc.createNestedObject("Sensor1");
-      data1["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
-      data1["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      //JsonObject data1 = doc.createNestedObject("Sensor1");
+      doc["Sensor1"]["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      doc["Sensor1"]["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
     }
 
 
     if (sensor_num > 1) {
-      JsonObject data2 = doc.createNestedObject("Sensor2");
-      data2["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
-      data2["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      //JsonObject data2 = doc.createNestedObject("Sensor2");
+      doc["Sensor2"]["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      doc["Sensor2"]["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
     }
     if (sensor_num > 2) {
-      JsonObject data3 = doc.createNestedObject("Sensor3");
-      data3["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
-      data3["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      //JsonObject data3 = doc.createNestedObject("Sensor3");
+      doc["Sensor3"]["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      doc["Sensor3"]["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
     }
     if (sensor_num > 3) {
-      JsonObject data4 = doc.createNestedObject("Sensor4");
-      data4["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
-      data4["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      //JsonObject data4 = doc.createNestedObject("Sensor4");
+      doc["Sensor4"]["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      doc["Sensor4"]["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
     }
 
     if (sensor_num > 4) {
-      JsonObject data5 = doc.createNestedObject("Sensor5");
-      data5["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
-      data5["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      //JsonObject data5 = doc.createNestedObject("Sensor5");
+      doc["Sensor5"]["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      doc["Sensor5"]["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
     }
 
     if (sensor_num > 5) {
-      JsonObject data6 = doc.createNestedObject("Sensor6");
-      data6["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
-      data6["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      //JsonObject data6 = doc.createNestedObject("Sensor6");
+      doc["Sensor6"]["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      doc["Sensor6"]["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
     }
 
     if (sensor_num > 6) {
-      JsonObject data7 = doc.createNestedObject("Sensor7");
-      data7["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
-      data7["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      //JsonObject data7 = doc.createNestedObject("Sensor7");
+      doc["Sensor7"]["Curr1"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
+      doc["Sensor7"]["Curr2"] = serialized(String(random(400, 500) * 1.1f,PRECISION));
     }
   }
   serializeJson(doc, data_json);
-  doc.clear();
-  doc.garbageCollect();
+  //doc.clear();
+  //doc.garbageCollect();
 
 
 

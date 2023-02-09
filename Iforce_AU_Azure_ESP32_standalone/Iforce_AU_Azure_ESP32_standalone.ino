@@ -366,11 +366,9 @@ char* generate_option_html_str() {
   upd_interval = preferences.getFloat("updInterval", 60);
   i2c_scan();
 
-  static char buffer[1024];
+  static char buffer[1700];
   int buff_len = sizeof(buffer) / sizeof(buffer[0]);
-  strncpy(buffer, "<label><input type='checkbox' name='sim' id='sim'", buff_len);
-  strncat(buffer, get_str_from_bool(preferences.getBool("sim", false)).c_str(), buff_len - strlen(buffer));
-  strncat(buffer, "><span>simulation</span></label>", buff_len - strlen(buffer));
+  
   strncat(buffer, "<p><label for='upd_interval'>check for update</label></p><select id='upd_interval'>", buff_len - strlen(buffer));
   if (upd_interval == 60) strncat(buffer, "<option value='60' selected>1 minute</option>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='60'>1 minute</option>", buff_len - strlen(buffer));
@@ -379,27 +377,27 @@ char* generate_option_html_str() {
   if (upd_interval == 86400) strncat(buffer, "<option value='86400' selected>24 hours</option>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='86400'>24 hours</option>", buff_len - strlen(buffer));
   if (upd_interval == 0) strncat(buffer, "<option value='0' selected>never</option></select>", buff_len - strlen(buffer));
-  else strncat(buffer, "<option value='0'>never</option></select>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='0'>never</option></select><hr />", buff_len - strlen(buffer));
 
   strncat(buffer, "<p><label for='sensor_num'>number of sensors</label></p><select id='sensor_num'>", buff_len - strlen(buffer));
   if (sensor_num == 1) strncat(buffer, "<option value='1' selected>1 sensor</option>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='1'>1 sensor</option>", buff_len - strlen(buffer));
-  if (sensor_num == 2) strncat(buffer, "<option value='1' selected>2 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 2) strncat(buffer, "<option value='2' selected>2 sensors</option>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='2'>2 sensors</option>", buff_len - strlen(buffer));
-  if (sensor_num == 3) strncat(buffer, "<option value='1' selected>3 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 3) strncat(buffer, "<option value='3' selected>3 sensors</option>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='3'>3 sensors</option>", buff_len - strlen(buffer));
-  if (sensor_num == 4) strncat(buffer, "<option value='1' selected>4 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 4) strncat(buffer, "<option value='4' selected>4 sensors</option>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='4'>4 sensors</option>", buff_len - strlen(buffer));
-  if (sensor_num == 5) strncat(buffer, "<option value='1' selected>5 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 5) strncat(buffer, "<option value='5' selected>5 sensors</option>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='5'>5 sensors</option>", buff_len - strlen(buffer));
-  if (sensor_num == 6) strncat(buffer, "<option value='1' selected>6 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 6) strncat(buffer, "<option value='6' selected>6 sensors</option>", buff_len - strlen(buffer));
   else strncat(buffer, "<option value='6'>6 sensors</option>", buff_len - strlen(buffer));
-  if (sensor_num == 7) strncat(buffer, "<option value='1' selected>7 sensors</option>", buff_len - strlen(buffer));
-  else strncat(buffer, "<option value='7'>7 sensors</option>", buff_len - strlen(buffer));
+  if (sensor_num == 7) strncat(buffer, "<option value='7' selected>7 sensors</option>", buff_len - strlen(buffer));
+  else strncat(buffer, "<option value='7'>7 sensors</option><p><\p>", buff_len - strlen(buffer));
 
-  strncat(buffer, "<p>sensor start: <input max='", buff_len - strlen(buffer));
+  strncat(buffer, "<p><label for='sensor_start'>start sensor</label><input max='", buff_len - strlen(buffer));
   strncat(buffer, String(preferences.getInt("sensor_num", 5)).c_str(), buff_len - strlen(buffer));
-  strncat(buffer, "'min='1' name='sensor_start' type='number' value='", buff_len - strlen(buffer));
+  strncat(buffer, "'min='1' name='sensor_start'id='sensor_start' type='number' value='", buff_len - strlen(buffer));
   strncat(buffer, String(preferences.getInt("sensor_start", 1)).c_str(), buff_len - strlen(buffer));
   strncat(buffer, "' /></p>", buff_len - strlen(buffer));
   strncat(buffer, "<p>delay time: <input max='100' min='1' name='delay_time' type='number' value='", buff_len - strlen(buffer));
@@ -905,7 +903,23 @@ void setup() {
     NULL,                       /* parameter of the task */
     1,                          /* priority of the task */
     &Task_sensor_data_send,     /* Task handle to keep track of created task */
-    1);                         /* pin task to core 1 */
+    1);                         /* pin task to core 1 */    
+
+  pinMode(4, OUTPUT);  //to PD12,14,15,13
+  pinMode(5, OUTPUT);
+  pinMode(14, OUTPUT);  //4 5 8: 3 input of multiplexer,
+  pinMode(13, OUTPUT);  //multiplexer enable
+
+  Wire.begin();  //I2C: between Ardunio and ADC/DAC, default speed: 100kHz,modified:400kHz
+  ads.begin();
+  //Bridge.begin();
+
+  digitalWrite(4, LOW);  //unselcet all sensors
+  digitalWrite(5, LOW);
+  digitalWrite(14, LOW);
+  digitalWrite(13, LOW);
+
+  DAC_command(DAC_D_WRITE_TO_AND_UPDATE_CHANNEL, 2650);
 }
 
 void check_update() {
@@ -953,21 +967,7 @@ void Task_sensor_data_gen_code(void* pvParameters) {
   Serial.print("Task_sensor_data_gen_code running on core ");
   Serial.println(xPortGetCoreID());
 
-  pinMode(4, OUTPUT);  //to PD12,14,15,13
-  pinMode(5, OUTPUT);
-  pinMode(14, OUTPUT);  //4 5 8: 3 input of multiplexer,
-  pinMode(13, OUTPUT);  //multiplexer enable
-
-  Wire.begin();  //I2C: between Ardunio and ADC/DAC, default speed: 100kHz,modified:400kHz
-  ads.begin();
-  //Bridge.begin();
-
-  digitalWrite(4, LOW);  //unselcet all sensors
-  digitalWrite(5, LOW);
-  digitalWrite(14, LOW);
-  digitalWrite(13, LOW);
-
-  DAC_command(DAC_D_WRITE_TO_AND_UPDATE_CHANNEL, 2650);
+  
   float sensor_readings[MAX_SENSORS][2];
   for (;;) {
 
@@ -1037,10 +1037,10 @@ void Task_sensor_data_gen_code(void* pvParameters) {
       delay(delaytime);
 
 
-      //sensor_readings[sensor_switch][0] = (float)ads.readADC_SingleEnded(0)*multiplier;
-      //sensor_readings[sensor_switch][1] = (float)ads.readADC_SingleEnded(1)*multiplier;
-      sensor_readings[sensor_switch][0] = (float)random(2500, 3000) * multiplier;
-      sensor_readings[sensor_switch][1] = (float)random(2500, 3000) * multiplier;
+      sensor_readings[sensor_switch][0] = (float)ads.readADC_SingleEnded(0)*multiplier;
+      sensor_readings[sensor_switch][1] = (float)ads.readADC_SingleEnded(1)*multiplier;
+      //sensor_readings[sensor_switch][0] = (float)random(2500, 3000) * multiplier;
+      //sensor_readings[sensor_switch][1] = (float)random(2500, 3000) * multiplier;
 
       if (sensor_switch == sensor_num) {
 
