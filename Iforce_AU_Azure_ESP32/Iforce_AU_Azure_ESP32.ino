@@ -569,8 +569,8 @@ void data_timer_callback() {
     Serial.println(err1.c_str());
   } else {
     */
-    doc["node"] = deviceName;
-    doc["round"] = round_num;
+    //doc["node"] = deviceName;
+    //doc["round"] = round_num;
     //doc["mac"] = WiFi.macAddress();
     //doc["rssi"] = WiFi.RSSI();
     status = "publish sensors";
@@ -584,12 +584,12 @@ void data_timer_callback() {
     timer_idle.setTimeout(200);
     timer_idle.start();
 
-    //Serial.println(temp_variables);
+    Serial.println(temp_variables);
     //temp_variables = "";
   //}
 
-  doc.clear();
-  doc.garbageCollect();
+  //doc.clear();
+  //doc.garbageCollect();
 
 }
 
@@ -906,7 +906,7 @@ void loop() {
 
   if (Serial2.available() > 0) {
     serialstring = Serial2.readStringUntil('\n');  //read until timeout
-    Serial.println(serialstring);
+    //Serial.println(serialstring);
     int ind00 = serialstring.indexOf(',');            //finds location of first ,
     int ind0 = serialstring.indexOf(',', ind00 + 1);  //finds location of first ,
     int ind1 = serialstring.indexOf(',', ind0 + 1);   //finds location of first ,
