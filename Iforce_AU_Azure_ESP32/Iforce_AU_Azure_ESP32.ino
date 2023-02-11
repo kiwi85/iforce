@@ -808,6 +808,7 @@ void setup() {
   // START: Wifi connection
   WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
   wm.setHostname(deviceName.c_str());
+  wm.setTitle("Iforce Azure Bridge");
   WiFi.setHostname(deviceName.c_str());
 
   client.setInsecure();
