@@ -37,7 +37,17 @@ String FirmwareVer = {
 };
 #define URL_fw_Version "https://raw.githubusercontent.com/kiwi85/iforce/main/Iforce_AU_Azure_ESP32_standalone/build/esp32.esp32.esp32/version.txt"
 #define URL_fw_Bin "https://raw.githubusercontent.com/kiwi85/iforce/main/Iforce_AU_Azure_ESP32_standalone/build/esp32.esp32.esp32/Iforce_AU_Azure_ESP32_standalone.ino.bin"
-
+#include "DAC_cmd.h"
+void DAC_command(uint8_t command,uint16_t val)
+{
+  Wire.beginTransmission(SLAVE_ADDRESS2);
+   int result = Wire.write(command);
+  Wire.write((uint8_t)(val>>4));
+  Wire.write((uint8_t)(val<<4));
+  //Wire.write(val,2);
+  Wire.endTransmission();
+  //Serial.printf("ad5625: %i\n",result);
+}
 /*declarations for aquisition unit */
 uint8_t cell_num, sensor_num, phase_num, measures = 1;
 uint8_t sensor_start = 1;  //sensor selecetion
@@ -339,7 +349,7 @@ void i2c_scan() {
     if (Wire.endTransmission() == 0)  // Receive 0 = success (ACK response)
     {
       i2c_device_adr[count] = i;
-      //Serial.printf("device: %i  count: %i\n",i,count);
+      Serial.printf("device: %i  count: %i\n",i,count);
       count++;
     }
   }
@@ -355,6 +365,7 @@ void i2c_scan() {
     }
     String temp_i2c_string;
     serializeJson(doc_i2c, temp_i2c_string);
+    //Serial.println(temp_i2c_string);
     preferences.putString("i2c", temp_i2c_string);
     preferences.end();
   }
